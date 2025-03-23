@@ -1,77 +1,41 @@
 import json
-import re
-from datetime import datetime, timezone
 
-def parse_asc_x12_message(asc_x12_message):
-    if not asc_x12_message:
-        return {}
-    
-    segments = re.findall(r'([A-Z]{2})(\|[^~]+)~?', asc_x12_message)
-    parsed_message = {}
-    for seg_id, seg_data in segments:
-        fields = seg_data.split('|')[1:]  # Exclude the segment ID
-        if seg_id not in parsed_message:
-            parsed_message[seg_id] = []
-        parsed_message[seg_id].append(fields)
-    return parsed_message
+def format_json(input_file, output_file):
+    try:
+        with open (input_file, 'r', encoding="utf-8") as f:
+            content = f. read()
 
-def generate_fhir_resources(parsed_message):
-    resources = []
+        # Fix multiple JSON objects in the file (Scenario 1)
+        # Attempt to wrap objects in a list if they are not already wrapped
+        objects = []
+        while content:
+            try:
+                # Try to load a single JSON object
+                obj, idx = json.JSONDecoder().raw_decode(content)
+                objects.append(obj)
+                content = content[idx:].lstrip()
+            except json. JSONDecodeError:
+                print ("Error while decoding JSON objects.") 
+                break
 
-    # Generate Patient resource
-    if 'NM1' in parsed_message:
-        patient_resource = {
-            "resourceType": "Patient",
-            "id": "example",
-            "meta": {
-                "versionId": "1",
-                "lastUpdated": datetime.now(timezone.utc).isoformat()
-            },
-            "identifier": {
-                "system": "http://example.org/patient_id",
-                "value": parsed_message['NM1'][0][8]
-            },
-            "name": {
-                "use": "official",
-                "family": parsed_message['NM1'][0][3],
-                "given": [parsed_message['NM1'][0][4]]
-            },
-            "gender": parsed_message['NM1'][0][5]
-        }
-        resources.append(patient_resource)
+    # If there were any valid objects, process them into an array and format
+        if objects:
+            formatted_data = json. dumps (objects, indent = 4)
+            with open (output_file, 'w', encoding = "utf-8") as f:
+                f.write(formatted_data)
+            print ("Formatted JSON written to", output_file)
+        else:
+            print ("No valid JSON objects found.")
+    except FileNotFoundError:
+        print("Input file not found.")
+    except json.JSONDecodeError as e:
+        print("Invalid JSON format in input file:", e)
+    except Exception as e:
+        print("An error occurred:", e)
 
-    # Add more resources as needed
 
-    return resources
-
-def save_json_to_file(json_data, filename):
-    with open(filename, 'w') as file:
-        json.dump(json_data, file, indent=4)
-
-def get_input_filename():
-    return input("Enter the location of the input ASC X12 message file: ")
-
-def get_output_filename():
-    return input("Enter the location where you want to save the output FHIR JSON file: ")
-
-# Example usage
 if __name__ == "__main__":
-    input_asc_x12_file = get_input_filename()
-    output_fhir_json_file = get_output_filename()
+    input_file = input ("Enter the path to the input JSON file: ")
+    output_file = input ("Enter the path to save the formatted JSON file: ")
 
-    # Read ASC X12 message from file
-    with open(input_asc_x12_file, 'r') as file:
-        asc_x12_message = file.read()
-
-    # Parse ASC X12 message
-    asc_x12_parsed = parse_asc_x12_message(asc_x12_message)
-
-    # Check if parsing was successful
-    if not asc_x12_parsed:
-        print("Error: Unable to parse ASC X12 message.")
-    else:
-        # Generate FHIR resources
-        fhir_resources = generate_fhir_resources(asc_x12_parsed)
-
-        # Save FHIR resources to file
-        save_json_to_file(fhir_resources, output_fhir_json_file)
+    format_json(input_file, output_file)
