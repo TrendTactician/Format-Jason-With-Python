@@ -39,3 +39,4 @@ if __name__ == "__main__":
     output_file = input ("Enter the path to save the formatted JSON file: ")
 
     format_json(input_file, output_file)
+
